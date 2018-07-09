@@ -1,7 +1,12 @@
+function Game(isopath, features) {
+    this.isopath = isopath;
+    this.features = features;
+}
+
 function Wormtail(isopath, model) {
     this.isopath = isopath;
     this.candidate_move_size = 10;
-    this.feature_history = [];
+    this.game_history = [];
     this.model = model;
 }
 
@@ -123,6 +128,31 @@ Wormtail.prototype.to_feature_vector = function(move) {
     var yourThreatenedPieces            = this.threatened_pieces(you);
     var yourPotentiallyThreatenedPieces = this.potentially_threatened_pieces(you)
 
+    var myTerrainPerspective = [];
+    for (var i = 0; i < this.isopath.all_places.length; i++) {
+        // Convert terrain perspective, so model doesn't prefer playing one
+        // colour over another
+        var level = this.isopath.board[this.isopath.all_places[i]] == this.isopath.playerlevel[me]
+            ? 0 : (this.isopath.board[this.isopath.all_places[i]] == this.isopath.playerlevel[you] ? 2 : 1);
+        myTerrainPerspective.push(level);
+    }
+
+    var myPieceLocations = [];
+    for (var i = 0; i < this.isopath.board[me].length; i++) {
+        myPieceLocations.push(this.isopath.all_places.indexOf(this.isopath.board[me][i]));
+    }
+    if (myPieceLocations.length < this.isopath.homerow[me].length) {
+        myPieceLocations += [-1] * (this.isopath.homerow[me].length - myPieceLocations.length);
+    }
+
+    var yourPieceLocations = [];
+    for (var i = 0; i < this.isopath.board[you].length; i++) {
+        yourPieceLocations.push(this.isopath.all_places.indexOf(this.isopath.board[you][i]));
+    }
+    if (yourPieceLocations.length < this.isopath.homerow[you].length) {
+        yourPieceLocations += [-1] * (this.isopath.homerow[you].length - yourPieceLocations.length);
+    }
+
     this.isopath.undoMove();
 
     return [
@@ -136,7 +166,7 @@ Wormtail.prototype.to_feature_vector = function(move) {
         distanceYourFurthestPiece,
         yourThreatenedPieces,
         yourPotentiallyThreatenedPieces
-    ];
+    ] + myTerrainPerspective + myPieceLocations + yourPieceLocations;
 };
 
 Wormtail.prototype.move = function() {
@@ -157,7 +187,7 @@ Wormtail.prototype.move = function() {
 
 
     var index = indexOfMax(candidate_move_scores);
-    this.feature_history.push(candidate_move_features[index]);
+    this.game_history.push(new Game(this.isopath.clone(), candidate_move_features[index]));
     return candidate_moves[index];
 };
 

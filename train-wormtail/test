@@ -1,0 +1,3 @@
+#!/bin/sh
+
+nodejs test.js $1

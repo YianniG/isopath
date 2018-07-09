@@ -22,14 +22,16 @@ function train_tournament(model, duration) {
 
     var winner = play_game(isopath, white, black, 100);
     if (winner == 'white') {
-      white_wins++;
+        white_wins++;
+        save_history(white, black, true);
     } else if (winner == 'black') {
-      black_wins++;
+        black_wins++;
+        save_history(white, black, false);
     } else {
-      draws++;
+        draws++;
     }
-    train_model(model, white.feature_history, winner == 'white');
-    train_model(model, black.feature_history, winner == 'black');
+    train_model(model, white.game_history, winner == 'white' ? 1 : -1);
+    train_model(model, black.game_history, winner == 'black' ? 1 : -1);
   }
 
   return [white_wins, black_wins, draws];
@@ -67,54 +69,66 @@ function test_random_tournament(model, duration) {
   return [model_wins, random_wins, draws];
 }
 
-function train_model(model, feature_history, won) {
-  for (var features in feature_history) {
-    model.activate(features);
-    model.propagate(LEARNING_RATE, won); // TODO: decay this value? start weak early and strong towards the end of game - linear?, quadratic? exponential?
-  }
+function train_model(model, game_history, won) {
+    var history_length = game_history.length;
+
+    for (var i = 0; i < history_length; i++) {
+        model.activate(game_history[i]);
+        var score =  won * Math.exp(i / history_length) / Math.exp(1); // Exponential growth curve
+        model.propagate(LEARNING_RATE, score);
+    }
 }
 
 function play_game(isopath, white, black, maxturns) {
-  for (var i = 0; i < maxturns; i++) {
-    try {
-      isopath.playMove(white.move());
-    } catch(e) {
-      //console.log("Invalid move from white.");
-      return 'black';
-    };
+    for (var i = 0; i < maxturns; i++) {
+        try {
+            isopath.playMove(white.move());
+        } catch(e) {
+            console.log(e);
+            //console.log("Invalid move from white.");
+          return 'black';
+        };
 
-    if (isopath.winner())
-      return isopath.winner();
+        if (isopath.winner())
+            return isopath.winner();
 
-    try {
-      isopath.playMove(black.move());
-    } catch(e) {
-      //console.log("Invalid move from black.");
-      return 'white';
-    };
+        try {
+            isopath.playMove(black.move());
+        } catch(e) {
+            //console.log("Invalid move from black.");
+            return 'white';
+        };
 
-    if (isopath.winner())
-      return isopath.winner(); }
+        if (isopath.winner())
+            return isopath.winner();
+    }
 
-  return '';
+    return '';
 }
 
 
-var model = new Architect.Perceptron(5, 10, 10, 1);
+var model = new Architect.Perceptron(55, 55, 55, 35, 1);
+var tournament_max_runs = process.argv[2];
+var tournament_length = process.argv[3];
+var test_length = process.argv[4];
 
-for (var tournament_runs = 0; tournament_runs < 200; tournament_runs++) {
-  console.log("tournament: " + tournament_runs);
-  var train_games = 100;
-  var test_games = 10;
+console.log("train model for " + tournament_max_runs);
+console.log("tournaments of length " + tournament_length);
+console.log("test of length " + test_length);
 
-  var [white_wins, black_wins, draws] =  train_tournament(model, train_games)
-  var [model_wins, random_wins, draws] = test_random_tournament(model, test_games);
+for (var tournament_runs = 0; tournament_runs < tournament_max_runs; tournament_runs++) {
+    console.log("tournament: " + tournament_runs);
+    var train_games = tournament_length;
+    var test_games = test_length;
 
-  console.log("win rate: " + (model_wins / test_games));
-  console.log("loss rate: " + (random_wins / test_games));
-  console.log("draw rate: " + (draws / test_games));
-  console.log("total train games: " + train_games);
-  console.log("total test games: " + test_games);
+    var [white_wins, black_wins, draws] =  train_tournament(model, train_games)
+    var [model_wins, random_wins, draws] = test_random_tournament(model, test_games);
+
+    console.log("win rate: " + (model_wins / test_games));
+    console.log("loss rate: " + (random_wins / test_games));
+    console.log("draw rate: " + (draws / test_games));
+    console.log("total train games: " + train_games);
+    console.log("total test games: " + test_games);
 }
 
 fs.writeFile("wormtail-model.json", JSON.stringify(model.toJSON()), function(err) {
@@ -122,3 +136,16 @@ fs.writeFile("wormtail-model.json", JSON.stringify(model.toJSON()), function(err
         return console.log(err);
     }
 });
+
+function save_history(ai1, ai2, ai1_won) {
+    fs.appendFile("game-history.json", JSON.stringify({"game": ai1.game_history, "outcome": ai1_won}) + '\n', function(err) {
+        if(err) {
+            return console.log(err);
+        }
+    });
+    fs.appendFile("game-history.json", JSON.stringify({"game": ai2.game_history, "outcome": !ai1_won}) + '\n', function(err) {
+        if(err) {
+            return console.log(err);
+        }
+    });
+}
