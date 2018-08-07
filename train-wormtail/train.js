@@ -107,10 +107,29 @@ function play_game(isopath, white, black, maxturns) {
 }
 
 
-var model = new Architect.Perceptron(55, 55, 55, 35, 1);
 var tournament_max_runs = process.argv[2];
 var tournament_length = process.argv[3];
 var test_length = process.argv[4];
+var model_index = process.argv[5];
+var model_name = process.argv[6];
+
+if (model_name == null) {
+  model_name = Math.floor(Math.random() * 100000);
+}
+
+if (model_index == null) {
+  model_index = 0;
+}
+
+var model = [
+  new Architect.Perceptron(55, 55, 55, 35, 1),
+  new Architect.Perceptron(55, 55, 35, 1),
+  new Architect.Perceptron(55, 35, 1),
+  new Architect.Perceptron(55, 55, 1),
+  new Architect.Perceptron(55, 110, 100, 35, 1),
+  new Architect.Perceptron(55, 110, 35, 1),
+  new Architect.Perceptron(55, 100, 100, 100, 100, 1),
+][model_index];
 
 console.log("train model for " + tournament_max_runs);
 console.log("tournaments of length " + tournament_length);
@@ -131,19 +150,19 @@ for (var tournament_runs = 0; tournament_runs < tournament_max_runs; tournament_
     console.log("total test games: " + test_games);
 }
 
-fs.writeFile("wormtail-model.json", JSON.stringify(model.toJSON()), function(err) {
+fs.writeFile("wormtail-model-" + model_name + ".json", JSON.stringify(model.toJSON()), function(err) {
     if(err) {
         return console.log(err);
     }
 });
 
 function save_history(ai1, ai2, ai1_won) {
-    fs.appendFile("game-history.json", JSON.stringify({"game": ai1.game_history, "outcome": ai1_won}) + '\n', function(err) {
+    fs.appendFile("game-history-" + model_name + ".json", JSON.stringify({"game": ai1.game_history, "outcome": ai1_won}) + '\n', function(err) {
         if(err) {
             return console.log(err);
         }
     });
-    fs.appendFile("game-history.json", JSON.stringify({"game": ai2.game_history, "outcome": !ai1_won}) + '\n', function(err) {
+    fs.appendFile("game-history-" + model_name + ".json", JSON.stringify({"game": ai2.game_history, "outcome": !ai1_won}) + '\n', function(err) {
         if(err) {
             return console.log(err);
         }
